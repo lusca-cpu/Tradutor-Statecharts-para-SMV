@@ -1,0 +1,14 @@
+statechart Interruptor {
+    events {
+        event ligar;
+        event desligar;
+    }
+    states {
+        initial state Desligado;
+        state Ligado;
+    }
+    transitions {
+        Desligado -> Ligado on ligar;
+        Ligado -> Desligado on desligar; 
+    }
+}
