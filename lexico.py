@@ -1,14 +1,14 @@
 from os import path
-from token import TipoToken, Token
+from token import TipoToken as tt, Token
 
 
 class Lexico:
     reserved_word = {
-        "statechart": TipoToken.STATECHART, "state": TipoToken.STATE, "states": TipoToken.STATES, "initial": TipoToken.INITIAL,"final": TipoToken.FINAL, 
-        "on": TipoToken.ON, "declarations": TipoToken.DECLARATIONS, "event": TipoToken.EVENT, "events": TipoToken.EVENTS, "entry": TipoToken.ENTRY,
-        "exit": TipoToken.EXIT, "internal": TipoToken.INTERNAL, "when": TipoToken.WHEN, "parallel": TipoToken.PARALLEL, "region": TipoToken.REGION, 
-        "transitions": TipoToken.TRANSITIONS,"or": TipoToken.OR, "and": TipoToken.AND, "not": TipoToken.NOT, "true": TipoToken.TRUE, "false": TipoToken.FALSE,
-        "bool": TipoToken.BOOL, "int": TipoToken.INT, "enum": TipoToken.ENUM, "string": TipoToken.STRING, "mod": TipoToken.MOD
+        "statechart": tt.STATECHART, "state": tt.STATE, "states": tt.STATES, "initial": tt.INITIAL,"final": tt.FINAL, 
+        "on": tt.ON, "declarations": tt.DECLARATIONS, "event": tt.EVENT, "events": tt.EVENTS, "entry": tt.ENTRY,
+        "exit": tt.EXIT, "internal": tt.INTERNAL, "when": tt.WHEN, "parallel": tt.PARALLEL, "region": tt.REGION, 
+        "transitions": tt.TRANSITIONS,"or": tt.OR, "and": tt.AND, "not": tt.NOT, "true": tt.TRUE, "false": tt.FALSE,
+        "bool": tt.BOOL, "int": tt.INT, "enum": tt.ENUM, "string": tt.STRING, "mod": tt.MOD
     }
 
     def __init__(self, name_file):
@@ -71,7 +71,7 @@ class Lexico:
                 char = self.getChar()
 
                 if char is None:
-                    return Token(TipoToken.EOF, "eof", self.line)
+                    return Token(tt.EOF, "eof", self.line)
                 elif char in {" ", "\t", "\n"}:
                     if char == "\n":
                         self.line += 1
@@ -82,7 +82,7 @@ class Lexico:
                 elif char in {"{", "}", "(", ")", "[", "]", "/", "*", ",", ";", "_", "-", "+", "=", "<", ">", ".", "!"}:
                     state = 4  # ESTADO PARA TRATAR OS TOKENS PRIMITIVOS
                 else:
-                    return Token(TipoToken.ERROR, "<" + char + ">", self.line)
+                    return Token(tt.ERROR, "<" + char + ">", self.line)
 
             elif state == 2:
                 # ESTADO PARA TRATAR NOME
@@ -94,7 +94,7 @@ class Lexico:
                     if lexema in Lexico.reserved_word:
                         return Token(Lexico.reserved_word[lexema], lexema, self.line)
                     else:
-                        return Token(TipoToken.IDENT, lexema, self.line)
+                        return Token(tt.IDENT, lexema, self.line)
 
             elif state == 3:
                 # ESTADO PARA TRATAR NÚMEROS
@@ -103,89 +103,89 @@ class Lexico:
 
                 if char is None or (not char.isdigit()):
                     self.ungetChar(char)
-                    return Token(TipoToken.NUM, lexema, self.line)
+                    return Token(tt.NUM, lexema, self.line)
 
             elif state == 4:
                 # ESTADO PARA TRATAR OS TOKENS PRIMITIVOS
                 lexema += char
 
                 if char == "{":
-                    return Token(TipoToken.OPENBRACES, lexema, self.line)
+                    return Token(tt.OPENBRACES, lexema, self.line)
                 
                 elif char == "}":
-                    return Token(TipoToken.CLOSEBRACES, lexema, self.line)
+                    return Token(tt.CLOSEBRACES, lexema, self.line)
                 
                 elif char == "(":
-                    return Token(TipoToken.OPENPAREN, lexema, self.line)
+                    return Token(tt.OPENPAREN, lexema, self.line)
                 
                 elif char == ")":
-                    return Token(TipoToken.CLOSEPAREN, lexema, self.line)
+                    return Token(tt.CLOSEPAREN, lexema, self.line)
                 
                 elif char == "[":
-                    return Token(TipoToken.OPENBRACKET, lexema, self.line)
+                    return Token(tt.OPENBRACKET, lexema, self.line)
                 
                 elif char == "]":
-                    return Token(TipoToken.CLOSEBRACKET, lexema, self.line)
+                    return Token(tt.CLOSEBRACKET, lexema, self.line)
                 
                 elif char == "/":
                     aux = self.getChar()
                     if (aux == "/") or (aux == "*"):
                         state = 5  # ESTADO PARA TRATAR COMENTÁRIOS
-                    return Token(TipoToken.MULTIPLICATIVE, lexema, self.line)
+                    return Token(tt.MULTIPLICATIVE, lexema, self.line)
                 
                 elif char == "*":
-                    return Token(TipoToken.MULTIPLICATIVE, lexema, self.line)
+                    return Token(tt.MULTIPLICATIVE, lexema, self.line)
 
                 elif char == ",":
-                    return Token(TipoToken.COMMA, lexema, self.line)
+                    return Token(tt.COMMA, lexema, self.line)
                 
                 elif char == ";":
-                    return Token(TipoToken.SEMICOLON, lexema, self.line)
+                    return Token(tt.SEMICOLON, lexema, self.line)
                 
                 elif char == "_":
-                    return Token(TipoToken.UNDERCORE, lexema, self.line)
+                    return Token(tt.UNDERCORE, lexema, self.line)
                 
                 elif char == "-":
                     aux = self.getChar()
                     if aux == ">":
                         lexema = char + aux
-                        return Token(TipoToken.ARROW, lexema, self.line)
+                        return Token(tt.ARROW, lexema, self.line)
                     else:
                         self.ungetChar(aux)
-                        return Token(TipoToken.ADDITIVE, lexema, self.line)
+                        return Token(tt.ADDITIVE, lexema, self.line)
                     
                 elif char == "+":
-                    return Token(TipoToken.ADDITIVE, lexema, self.line)
+                    return Token(tt.ADDITIVE, lexema, self.line)
                     
                 elif char == "=":   
-                    return Token(TipoToken.EQUAL, lexema, self.line)
+                    return Token(tt.EQUAL, lexema, self.line)
                 
                 elif char == "<" or char == ">":
                     aux = self.getChar()
                     if aux == "=":
                         lexema = char + aux
-                        return Token(TipoToken.RELATIONAL, lexema, self.line)
+                        return Token(tt.RELATIONAL, lexema, self.line)
                     else:
                         self.ungetChar(aux)
-                        return Token(TipoToken.RELATIONAL, lexema, self.line)
+                        return Token(tt.RELATIONAL, lexema, self.line)
                     
                 elif char == ".":
                     aux = self.getChar()
                     if aux == ".":
                         lexema = char + aux
-                        return Token(TipoToken.RANGE, lexema, self.line)
+                        return Token(tt.RANGE, lexema, self.line)
                     else:
                         self.ungetChar(aux)
-                        return Token(TipoToken.ERROR, "<" + char + ">", self.line)
+                        return Token(tt.ERROR, "<" + char + ">", self.line)
 
                 elif char == "!":
                     aux = self.getChar()
                     if aux == "=":
                         lexema = char + aux
-                        return Token(TipoToken.EQUAL, lexema, self.line)
+                        return Token(tt.EQUAL, lexema, self.line)
                     else:
                         self.ungetChar(aux)
-                        return Token(TipoToken.ERROR, "<" + char + ">", self.line)
+                        return Token(tt.ERROR, "<" + char + ">", self.line)
 
             elif state == 5:
                 # CONSUMINDO COMENTARIO
