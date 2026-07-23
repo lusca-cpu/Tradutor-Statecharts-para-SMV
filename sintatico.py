@@ -236,9 +236,156 @@ class Sintatico:
         self.consome(tt.CLOSEBRACES)
         self.consome(tt.SEMICOLON)
 
-    def PARALLEL_STATE(self):
+    def PARALLEL_STATE(self): #ESTA INCOMPLETA, PRECISA SER IMPLEMENTADA
         self.consome(tt.PARALLEL)
         self.consome(tt.STATE)
         self.IDENTIFIER()
 
-        
+    def PARALLEL_REGION(self):
+        self.consome(tt.REGION)
+        self.IDENTIFIER()
+        self.consome(tt.OPENBRACES)
+        self.STATES_SECTION()
+
+        if self.atualIgual(tt.TRANSITIONS):
+            self.TRANSITIONS_SECTION()
+
+        self.consome(tt.CLOSEBRACES)
+
+    def TRANSITIONS_SECTION(self):
+        self.consome(tt.TRANSITIONS)
+        self.consome(tt.OPENBRACES)
+
+        while self.atualIgual(tt. IDENTIFIER):
+            self.TRANSITION()
+
+        self.consome(tt.CLOSEBRACES)
+
+    def TRANSITION(self):
+        self.IDENTIFIER()
+        self.consome(tt.ARROW)
+        self.IDENTIFIER()
+
+        if self.atualIgual(tt.ON): 
+            self.consome(tt.ON)
+            self.IDENTIFIER()
+
+        if self.atualIgual(tt.WHEN):
+            self.consome(tt.WHEN)
+            self.EXPRESSION()
+
+        if self.atualIgual(tt.MULTIPLICATIVE):
+            self.consome(tt.MULTIPLICATIVE)
+            self.ACTION_LIST()
+
+        self.consome(tt.SEMICOLON)
+
+    def ACTION_LIST(self):
+        self.ASSIGNMENT()
+
+        while self.atualIgual(tt.COMMA):
+            self.consome(tt.COMMA)
+            self.ASSIGNMENT()
+
+    def ASSIGNMENT(self):
+        self.IDENTIFIER()
+        self.consome(tt.EQUAL)
+        self.EXPRESSION()
+
+    def EXPRESSION(self):
+        self.LOGICAL_OR_EXPRESSION()
+
+    def LOGICAL_OR_EXPRESSION(self):
+        self.LOGICAL_AND_EXPRESSION()
+
+        while self.atualIgual(tt.OR):
+            self.consome(tt.OR)
+            self.LOGICAL_AND_EXPRESSION()
+
+    def LOGICAL_AND_EXPRESSION(self):
+        self.EQUALITY_EXPRESSION()
+
+        while self.atualIgual(tt.AND):
+            self.consome(tt.AND)
+            self.EQUALITY_EXPRESSION()
+
+    def EQUALITY_EXPRESSION(self):
+        self.RELATIONAL_EXPRESSION()
+
+        while self.atualIgual(tt.EQUAL):
+            self.consome(tt.EQUAL)
+            self.RELATIONAL_EXPRESSION()
+
+    def RELATIONAL_EXPRESSION(self):
+        self.ADDITIVE_EXPRESSION()
+
+        if self.atualIgual(tt.RELATIONAL):
+            self.consome(tt.RELATIONAL)
+            self.ADDITIVE_EXPRESSION()
+
+    def ADDITIVE_EXPRESSION(self):
+        self.MULTIPLICATIVE_EXPRESSION()
+
+        while self.atualIgual(tt.ADDITIVE):
+            self.consome(tt.ADDITIVE)
+            self.MULTIPLICATIVE_EXPRESSION()
+
+    def MULTIPLICATIVE_EXPRESSION(self):
+        self.UNARY_EXPRESSION()
+
+        while self.atualIgual(tt.MULTIPLICATIVE) or self.atualIgual(tt.MOD):
+            if self.atualIgual(tt.MOD):
+                self.consome(tt.MOD)
+                self.UNARY_EXPRESSION()
+            else:
+                self.consome(tt.MULTIPLICATIVE)
+                self.UNARY_EXPRESSION()
+
+    def UNARY_EXPRESSION(self):
+        if self.atualIgual(tt.NOT):
+            self.consome(tt.NOT)
+            self.UNARY_EXPRESSION()
+        else:
+            self.consome(tt.ADDITIVE)
+            self.PRIMARY_EXPRESSION()
+
+    def PRIMARY_EXPRESSION(self):
+        if self.atualIgual(tt.IDENT):
+            self.IDENTIFIER()
+        elif self.atualIgual(tt.NUM):
+            self.INTEGER()
+        elif self.atualIgual(tt.TRUE):
+            self.consome(tt.TRUE)
+        elif self.atualIgual(tt.FALSE):
+            self.consome(tt.FALSE)
+        elif self.atualIgual(tt.OPENPAREN):
+            self.consome(tt.OPENPAREN)
+            self.EXPRESSION()
+            self.consome(tt.CLOSEPAREN)
+
+    def IDENTIFIER_LIST(self):
+        self.IDENTIFIER()
+
+        while self.atualIgual(tt.COMMA):
+            self.consome(tt.COMMA)
+            self.IDENTIFIER()
+
+    def IDENTIFIER(self):
+        self.consome(tt.IDENT)
+
+        while (self.atualIgual(tt.IDENT) or self.atualIgual(tt.NUM) or self.atualIgual(tt.UNDERCORE)):
+            if self.atualIgual(tt.IDENT):
+                self.consome(tt.IDENT)
+            elif self.atualIgual(tt.NUM):
+                self.consome(tt.NUM)
+            elif self.atualIgual(tt.UNDERCORE):
+                self.consome(tt.UNDERCORE)
+
+    def INTEGER(self):
+        if self.atualIgual(tt.ADDITIVE):
+            self.consome(tt.ADDITIVE)
+
+        self.consome(tt.NUM)
+
+        while self.atualIgual(tt.NUM):
+            self.consome(tt.NUM)
