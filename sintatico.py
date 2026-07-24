@@ -236,7 +236,7 @@ class Sintatico:
         self.consome(tt.CLOSEBRACES)
         self.consome(tt.SEMICOLON)
 
-    def PARALLEL_STATE(self): #ESTA INCOMPLETA, PRECISA SER IMPLEMENTADA
+    def PARALLEL_STATE(self):
         self.consome(tt.PARALLEL)
         self.consome(tt.STATE)
         self.IDENTIFIER()
@@ -264,7 +264,7 @@ class Sintatico:
         self.consome(tt.TRANSITIONS)
         self.consome(tt.OPENBRACES)
 
-        while self.atualIgual(tt. IDENTIFIER):
+        while self.atualIgual(tt.IDENT):
             self.TRANSITION()
 
         self.consome(tt.CLOSEBRACES)
