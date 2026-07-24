@@ -240,6 +240,14 @@ class Sintatico:
         self.consome(tt.PARALLEL)
         self.consome(tt.STATE)
         self.IDENTIFIER()
+        self.consome(tt.OPENBRACES)
+        self.PARALLEL_REGION()
+        self.PARALLEL_REGION()
+
+        while self.atualIgual(tt.REGION):
+            self.PARALLEL_REGION()
+
+        self.consome(tt.CLOSEBRACES)
 
     def PARALLEL_REGION(self):
         self.consome(tt.REGION)
