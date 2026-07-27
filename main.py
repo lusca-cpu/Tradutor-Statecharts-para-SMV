@@ -2,7 +2,7 @@ from sintatico import Sintatico
 from token import TipoToken
 
 if __name__ == "__main__":
-    nome_arquivo = "exem.txt"  # ajuste o caminho se necessário
+    nome_arquivo = "exem.txt"  
     
     sintatico = Sintatico()
 
