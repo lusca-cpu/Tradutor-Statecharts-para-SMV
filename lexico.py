@@ -131,7 +131,9 @@ class Lexico:
                     aux = self.getChar()
                     if (aux == "/") or (aux == "*"):
                         state = 5  # ESTADO PARA TRATAR COMENTÁRIOS
-                    return Token(tt.MULTIPLICATIVE, lexema, self.line)
+                    else:
+                        self.ungetChar(aux)
+                        return Token(tt.MULTIPLICATIVE, lexema, self.line)
                 
                 elif char == "*":
                     return Token(tt.MULTIPLICATIVE, lexema, self.line)
@@ -188,20 +190,28 @@ class Lexico:
                         return Token(tt.ERROR, "<" + char + ">", self.line)
 
             elif state == 5:
-                # CONSUMINDO COMENTARIO
                 if aux == '/':
+                    # comentário de linha
                     while (not char is None) and (char != '\n'):
-                        char = self.getChar()                    
-                else: 
-                    while (not char is None):
                         char = self.getChar()
+                    self.ungetChar(char)   # devolve '\n' (ou None) pro state 1 tratar
+
+                else:
+                    # comentário de bloco
+                    while True:
+                        char = self.getChar()
+                        if char is None:
+                            print(f'ERRO LÉXICO NA LINHA {self.line}: comentário não fechado!')
+                            quit()
+                        if char == '\n':
+                            self.line += 1
                         if char == '*':
                             aux = self.getChar()
                             if aux == '/':
                                 break
-                        elif char == None:
-                            print(f'ERRO LÉXICO NA LINHA {self.linha}!')
-                            quit()
-                self.ungetChar(char)
-                lexema = '' 
+                            else:
+                                self.ungetChar(aux)   # <- devolve o que não fechou, sem perder caractere
+                    # NÃO faz ungetChar aqui: '*/' já foi totalmente consumido
+
+                lexema = ''
                 state = 1

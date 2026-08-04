@@ -1,6 +1,22 @@
 from token import TipoToken as tt
 
 from lexico import Lexico
+from no import (
+    StatechartNode,
+    DeclaracaoVariavelNode,
+    EventoNode,
+    EstadoNode,
+    TransicaoInternaNode,
+    EstadoParaleloNode,
+    RegiaoNode,
+    TransicaoNode,
+    AtribuicaoNode,
+    ExpressaoBinariaNode,
+    ExpressaoUnariaNode,
+    IdentificadorNode,
+    NumeroNode,
+    BooleanoNode,
+)
 
 
 class Sintatico:
@@ -12,16 +28,17 @@ class Sintatico:
     def interprete(self, name_file):
         if not self.lex is None:
             print("ERRO: Já existe um arquivo sendo processado.")
+            return None
         else:
             self.lex = Lexico(name_file)
             self.lex.openFile()
             self.tokenAtual = self.lex.getToken()
 
-            self.STATECHART()
+            arvore = self.STATECHART()
 
             self.lex.closeFile()
 
-            return not self.erro
+            return arvore if not self.erro else None
 
     def atualIgual(self, token):
         (const, msg) = token
@@ -35,365 +52,464 @@ class Sintatico:
             return ultimoToken
 
         else:
-            self.error = True
+            self.erro = True
             (const, msg) = token
             print(
                 f'ERRO DE SINTAXE [linha {self.tokenAtual.line}]: era esperado "{msg}" mas veio "{self.tokenAtual.lexema}"'
             )
             quit()
 
+    # ==================== STATECHART ====================
+
     def STATECHART(self):
         self.consome(tt.STATECHART)
-        self.IDENTIFIER()
+        nome = self.IDENTIFIER()
         self.consome(tt.OPENBRACES)
 
+        declaracoes = []
         if self.atualIgual(tt.DECLARATIONS):
-            self.DECLARATIONS_SECTION()
+            declaracoes = self.DECLARATIONS_SECTION()
 
+        eventos = []
         if self.atualIgual(tt.EVENTS):
-            self.EVENTS_SECTION()
+            eventos = self.EVENTS_SECTION()
 
-        self.STATES_SECTION()
+        estados = self.STATES_SECTION()
 
+        transicoes = []
         if self.atualIgual(tt.TRANSITIONS):
-            self.TRANSITIONS_SECTION()
+            transicoes = self.TRANSITIONS_SECTION()
 
         self.consome(tt.CLOSEBRACES)
+
+        return StatechartNode(nome, declaracoes, eventos, estados, transicoes)
+
+    # ==================== DECLARATIONS ====================
 
     def DECLARATIONS_SECTION(self):
-        self.consome(tt.DECLARATIONS_SECTION)
+        self.consome(tt.DECLARATIONS)
         self.consome(tt.OPENBRACES)
 
-        while self.atualIgual(tt.VARIEABLE_DECLARATION):
-            self.VARIABLE_DECLARATION()
+        declaracoes = []
+        while (self.atualIgual(tt.BOOL) or self.atualIgual(tt.INT) or self.atualIgual(tt.ENUM)):
+            declaracoes.append(self.VARIABLE_DECLARATION())
 
         self.consome(tt.CLOSEBRACES)
+        return declaracoes
 
     def VARIABLE_DECLARATION(self):
         if self.atualIgual(tt.BOOL):
             self.consome(tt.BOOL)
-            self.IDENTIFIER()
+            nome = self.IDENTIFIER()
 
+            valor = None
             if self.atualIgual(tt.EQUAL):
                 self.consome(tt.EQUAL)
-                self.BOOLEAN()
+                valor = self.BOOLEAN()
 
             self.consome(tt.SEMICOLON)
+            return DeclaracaoVariavelNode("bool", nome, valor_inicial=valor)
 
         elif self.atualIgual(tt.INT):
             self.consome(tt.INT)
-            self.IDENTIFIER()
-            self.RANGE()
+            nome = self.IDENTIFIER()
+            rmin, rmax = self.RANGE()
 
+            valor = None
             if self.atualIgual(tt.EQUAL):
                 self.consome(tt.EQUAL)
-                self.INTEGER()
+                valor = self.INTEGER()
 
             self.consome(tt.SEMICOLON)
+            return DeclaracaoVariavelNode("int", nome, range_min=rmin, range_max=rmax, valor_inicial=valor)
 
         elif self.atualIgual(tt.ENUM):
             self.consome(tt.ENUM)
-            self.IDENTIFIER()
+            nome = self.IDENTIFIER()
             self.consome(tt.OPENBRACES)
-            self.IDENTIFIER_LIST()
+            valores = self.IDENTIFIER_LIST()
             self.consome(tt.CLOSEBRACES)
 
+            valor = None
             if self.atualIgual(tt.EQUAL):
                 self.consome(tt.EQUAL)
-                self.IDENTIFIER()
+                valor = self.IDENTIFIER()
 
             self.consome(tt.SEMICOLON)
+            return DeclaracaoVariavelNode("enum", nome, valores_enum=valores, valor_inicial=valor)
 
     def RANGE(self):
         self.consome(tt.OPENBRACKET)
-        self.INTEGER()
+        minimo = self.INTEGER()
         self.consome(tt.RANGE)
-        self.INTEGER()
+        maximo = self.INTEGER()
         self.consome(tt.CLOSEBRACKET)
+        return (minimo, maximo)
+
+    # ==================== EVENTS ====================
 
     def EVENTS_SECTION(self):
         self.consome(tt.EVENTS)
         self.consome(tt.OPENBRACES)
 
+        eventos = []
         while self.atualIgual(tt.EVENT):
-            self.EVENTS_DECLARATION()
+            eventos.append(self.EVENTS_DECLARATION())
 
         self.consome(tt.CLOSEBRACES)
+        return eventos
 
     def EVENTS_DECLARATION(self):
         self.consome(tt.EVENT)
-        self.IDENTIFIER()
+        nome = self.IDENTIFIER()
         self.consome(tt.SEMICOLON)
+        return EventoNode(nome)
+
+    # ==================== STATES ====================
 
     def STATES_SECTION(self):
         self.consome(tt.STATES)
         self.consome(tt.OPENBRACES)
 
-        while (self.atualIgual(tt.INITIAL) or self.atualIgual(tt.FINAL) or self.atualIgual(tt.STATE) or self.atualIgual(tt.PARALLEL)):
-            self.STATE_DECLARATION()
+        estados = []
+        while (self.atualIgual(tt.INITIAL) or self.atualIgual(tt.FINAL)
+               or self.atualIgual(tt.STATE) or self.atualIgual(tt.PARALLEL)):
+            estados.append(self.STATE_DECLARATION())
 
         self.consome(tt.CLOSEBRACES)
+        return estados
 
     def STATE_DECLARATION(self):
+        inicial = False
+        final = False
+
         if self.atualIgual(tt.INITIAL):
             self.consome(tt.INITIAL)
-            self.consome(tt.STATE)
-            self.IDENTIFIER()
-
-            if self.atualIgual(tt.OPENBRACES):
-                self.COMPOSITE_STATE()
-            else:
-                self.SIMPLE_STATE()
-
+            inicial = True
         elif self.atualIgual(tt.FINAL):
             self.consome(tt.FINAL)
-            self.consome(tt.STATE)
-            self.IDENTIFIER()
+            final = True
 
-            if self.atualIgual(tt.OPENBRACES):
-                self.COMPOSITE_STATE()
-            else:
-                self.SIMPLE_STATE()
+        if self.atualIgual(tt.PARALLEL):
+            return self.PARALLEL_STATE()
 
-        elif self.atualIgual(tt.STATE):
-            self.consome(tt.STATE)
-            self.IDENTIFIER()
+        self.consome(tt.STATE)
+        nome = self.IDENTIFIER()
 
-            if self.atualIgual(tt.OPENBRACES):
-                self.COMPOSITE_STATE()
-            else:
-                self.SIMPLE_STATE()
-        
-        elif self.atualIgual(tt.PARALLEL):
-            self.PARALLEL_STATE()
+        estado = EstadoNode(nome, inicial=inicial, final=final)
 
-    def SIMPLE_STATE(self):
         if self.atualIgual(tt.OPENBRACES):
-            self.STATE_BODY()
+            self.consome(tt.OPENBRACES)
 
-        self.consome(tt.SEMICOLON)
+            if (self.atualIgual(tt.ENTRY) or self.atualIgual(tt.EXIT) or self.atualIgual(tt.INTERNAL)):
+                # simple_state com state_body
+                self.STATE_BODY_CONTEUDO(estado)
+            else:
+                # composite_state
+                self.COMPOSITE_STATE_CONTEUDO(estado)
 
-    def STATE_BODY(self):
-        self.consome(tt.OPENBRACES)
+            self.consome(tt.CLOSEBRACES)
+            self.consome(tt.SEMICOLON)
+        else:
+            # simple_state sem corpo
+            self.consome(tt.SEMICOLON)
 
+        return estado
+
+    def STATE_BODY_CONTEUDO(self, estado):
+        # "{" já foi consumido por quem chamou
         while (self.atualIgual(tt.ENTRY) or self.atualIgual(tt.EXIT) or self.atualIgual(tt.INTERNAL)):
             if self.atualIgual(tt.ENTRY):
-                self.ENTRY_SECTION()
+                estado.entry = self.ENTRY_SECTION()
             elif self.atualIgual(tt.EXIT):
-                self.EXIT_SECTION()
+                estado.exit = self.EXIT_SECTION()
             elif self.atualIgual(tt.INTERNAL):
-                self.INTERNAL_SECTION()
-
-        self.consome(tt.CLOSEBRACES)
+                estado.internos.append(self.INTERNAL_SECTION())
 
     def ENTRY_SECTION(self):
         self.consome(tt.ENTRY)
         self.consome(tt.MULTIPLICATIVE)
-        self.ACTION_LIST()
+        acoes = self.ACTION_LIST()
         self.consome(tt.SEMICOLON)
+        return acoes
 
     def EXIT_SECTION(self):
         self.consome(tt.EXIT)
         self.consome(tt.MULTIPLICATIVE)
-        self.ACTION_LIST()
+        acoes = self.ACTION_LIST()
         self.consome(tt.SEMICOLON)
+        return acoes
 
     def INTERNAL_SECTION(self):
         self.consome(tt.INTERNAL)
 
+        evento = None
         if self.atualIgual(tt.ON):
             self.consome(tt.ON)
-            self.IDENTIFIER()
+            evento = self.IDENTIFIER()
 
+        condicao = None
         if self.atualIgual(tt.WHEN):
             self.consome(tt.WHEN)
-            self.EXPRESSION()
+            condicao = self.EXPRESSION()
 
+        acoes = []
         if self.atualIgual(tt.MULTIPLICATIVE):
             self.consome(tt.MULTIPLICATIVE)
-            self.ACTION_LIST()
+            acoes = self.ACTION_LIST()
 
         self.consome(tt.SEMICOLON)
+        return TransicaoInternaNode(evento, condicao, acoes)
 
-    def COMPOSITE_STATE(self):
-        self.consome(tt.OPENBRACES)
-
+    def COMPOSITE_STATE_CONTEUDO(self, estado):
+        # "{" já foi consumido por quem chamou
         if self.atualIgual(tt.DECLARATIONS):
-            self.DECLARATIONS_SECTION()
+            estado.declaracoes = self.DECLARATIONS_SECTION()
 
         if self.atualIgual(tt.STATES):
-            self.STATES_SECTION()
+            estado.estados_filhos = self.STATES_SECTION()
 
         if self.atualIgual(tt.TRANSITIONS):
-            self.TRANSITIONS_SECTION()
+            estado.transicoes = self.TRANSITIONS_SECTION()
 
         while (self.atualIgual(tt.ENTRY) or self.atualIgual(tt.EXIT)):
             if self.atualIgual(tt.ENTRY):
-                self.ENTRY_SECTION()
+                estado.entry = self.ENTRY_SECTION()
             elif self.atualIgual(tt.EXIT):
-                self.EXIT_SECTION()
-
-        self.consome(tt.CLOSEBRACES)
-        self.consome(tt.SEMICOLON)
+                estado.exit = self.EXIT_SECTION()
 
     def PARALLEL_STATE(self):
         self.consome(tt.PARALLEL)
         self.consome(tt.STATE)
-        self.IDENTIFIER()
+        nome = self.IDENTIFIER()
         self.consome(tt.OPENBRACES)
-        self.PARALLEL_REGION()
-        self.PARALLEL_REGION()
+
+        regioes = [self.PARALLEL_REGION(), self.PARALLEL_REGION()]
 
         while self.atualIgual(tt.REGION):
-            self.PARALLEL_REGION()
+            regioes.append(self.PARALLEL_REGION())
 
         self.consome(tt.CLOSEBRACES)
+        self.consome(tt.SEMICOLON)
+
+        return EstadoParaleloNode(nome, regioes)
 
     def PARALLEL_REGION(self):
         self.consome(tt.REGION)
-        self.IDENTIFIER()
+        nome = self.IDENTIFIER()
         self.consome(tt.OPENBRACES)
-        self.STATES_SECTION()
+        estados = self.STATES_SECTION()
 
+        transicoes = []
         if self.atualIgual(tt.TRANSITIONS):
-            self.TRANSITIONS_SECTION()
+            transicoes = self.TRANSITIONS_SECTION()
 
         self.consome(tt.CLOSEBRACES)
+        return RegiaoNode(nome, estados, transicoes)
+
+    # ==================== TRANSITIONS ====================
 
     def TRANSITIONS_SECTION(self):
         self.consome(tt.TRANSITIONS)
         self.consome(tt.OPENBRACES)
 
+        transicoes = []
         while self.atualIgual(tt.IDENT):
-            self.TRANSITION()
+            transicoes.append(self.TRANSITION())
 
         self.consome(tt.CLOSEBRACES)
+        return transicoes
 
     def TRANSITION(self):
-        self.IDENTIFIER()
+        origem = self.IDENTIFIER()
         self.consome(tt.ARROW)
-        self.IDENTIFIER()
+        destino = self.IDENTIFIER()
 
-        if self.atualIgual(tt.ON): 
+        evento = None
+        if self.atualIgual(tt.ON):
             self.consome(tt.ON)
-            self.IDENTIFIER()
+            evento = self.IDENTIFIER()
 
+        condicao = None
         if self.atualIgual(tt.WHEN):
             self.consome(tt.WHEN)
-            self.EXPRESSION()
+            condicao = self.EXPRESSION()
 
+        acoes = []
         if self.atualIgual(tt.MULTIPLICATIVE):
             self.consome(tt.MULTIPLICATIVE)
-            self.ACTION_LIST()
+            acoes = self.ACTION_LIST()
 
         self.consome(tt.SEMICOLON)
+        return TransicaoNode(origem, destino, evento, condicao, acoes)
 
     def ACTION_LIST(self):
-        self.ASSIGNMENT()
+        acoes = [self.ASSIGNMENT()]
 
         while self.atualIgual(tt.COMMA):
             self.consome(tt.COMMA)
-            self.ASSIGNMENT()
+            acoes.append(self.ASSIGNMENT())
+
+        return acoes
 
     def ASSIGNMENT(self):
-        self.IDENTIFIER()
+        identificador = self.IDENTIFIER()
         self.consome(tt.EQUAL)
-        self.EXPRESSION()
+        expressao = self.EXPRESSION()
+        return AtribuicaoNode(identificador, expressao)
+
+    # ==================== EXPRESSIONS ====================
 
     def EXPRESSION(self):
-        self.LOGICAL_OR_EXPRESSION()
+        return self.LOGICAL_OR_EXPRESSION()
 
     def LOGICAL_OR_EXPRESSION(self):
-        self.LOGICAL_AND_EXPRESSION()
+        esquerda = self.LOGICAL_AND_EXPRESSION()
 
         while self.atualIgual(tt.OR):
-            self.consome(tt.OR)
-            self.LOGICAL_AND_EXPRESSION()
+            op = self.consome(tt.OR)
+            direita = self.LOGICAL_AND_EXPRESSION()
+            esquerda = ExpressaoBinariaNode(op, esquerda, direita)
+
+        return esquerda
 
     def LOGICAL_AND_EXPRESSION(self):
-        self.EQUALITY_EXPRESSION()
+        esquerda = self.EQUALITY_EXPRESSION()
 
         while self.atualIgual(tt.AND):
-            self.consome(tt.AND)
-            self.EQUALITY_EXPRESSION()
+            op = self.consome(tt.AND)
+            direita = self.EQUALITY_EXPRESSION()
+            esquerda = ExpressaoBinariaNode(op, esquerda, direita)
+
+        return esquerda
 
     def EQUALITY_EXPRESSION(self):
-        self.RELATIONAL_EXPRESSION()
+        esquerda = self.RELATIONAL_EXPRESSION()
 
         while self.atualIgual(tt.EQUAL):
-            self.consome(tt.EQUAL)
-            self.RELATIONAL_EXPRESSION()
+            op = self.consome(tt.EQUAL)
+            direita = self.RELATIONAL_EXPRESSION()
+            esquerda = ExpressaoBinariaNode(op, esquerda, direita)
+
+        return esquerda
 
     def RELATIONAL_EXPRESSION(self):
-        self.ADDITIVE_EXPRESSION()
+        esquerda = self.ADDITIVE_EXPRESSION()
 
         if self.atualIgual(tt.RELATIONAL):
-            self.consome(tt.RELATIONAL)
-            self.ADDITIVE_EXPRESSION()
+            op = self.consome(tt.RELATIONAL)
+            direita = self.ADDITIVE_EXPRESSION()
+            esquerda = ExpressaoBinariaNode(op, esquerda, direita)
+
+        return esquerda
 
     def ADDITIVE_EXPRESSION(self):
-        self.MULTIPLICATIVE_EXPRESSION()
+        esquerda = self.MULTIPLICATIVE_EXPRESSION()
 
         while self.atualIgual(tt.ADDITIVE):
-            self.consome(tt.ADDITIVE)
-            self.MULTIPLICATIVE_EXPRESSION()
+            op = self.consome(tt.ADDITIVE)
+            direita = self.MULTIPLICATIVE_EXPRESSION()
+            esquerda = ExpressaoBinariaNode(op, esquerda, direita)
+
+        return esquerda
 
     def MULTIPLICATIVE_EXPRESSION(self):
-        self.UNARY_EXPRESSION()
+        esquerda = self.UNARY_EXPRESSION()
 
         while self.atualIgual(tt.MULTIPLICATIVE) or self.atualIgual(tt.MOD):
             if self.atualIgual(tt.MOD):
-                self.consome(tt.MOD)
-                self.UNARY_EXPRESSION()
+                op = self.consome(tt.MOD)
             else:
-                self.consome(tt.MULTIPLICATIVE)
-                self.UNARY_EXPRESSION()
+                op = self.consome(tt.MULTIPLICATIVE)
+            direita = self.UNARY_EXPRESSION()
+            esquerda = ExpressaoBinariaNode(op, esquerda, direita)
+
+        return esquerda
 
     def UNARY_EXPRESSION(self):
         if self.atualIgual(tt.NOT):
-            self.consome(tt.NOT)
-            self.UNARY_EXPRESSION()
+            op = self.consome(tt.NOT)
+            operando = self.UNARY_EXPRESSION()
+            return ExpressaoUnariaNode(op, operando)
+
+        elif self.atualIgual(tt.ADDITIVE):
+            op = self.consome(tt.ADDITIVE)
+            operando = self.PRIMARY_EXPRESSION()
+            return ExpressaoUnariaNode(op, operando)
+
         else:
-            self.consome(tt.ADDITIVE)
-            self.PRIMARY_EXPRESSION()
+            return self.PRIMARY_EXPRESSION()
 
     def PRIMARY_EXPRESSION(self):
         if self.atualIgual(tt.IDENT):
-            self.IDENTIFIER()
+            return IdentificadorNode(self.IDENTIFIER())
+
         elif self.atualIgual(tt.NUM):
-            self.INTEGER()
+            return NumeroNode(self.INTEGER())
+
         elif self.atualIgual(tt.TRUE):
             self.consome(tt.TRUE)
+            return BooleanoNode(True)
+
         elif self.atualIgual(tt.FALSE):
             self.consome(tt.FALSE)
+            return BooleanoNode(False)
+
         elif self.atualIgual(tt.OPENPAREN):
             self.consome(tt.OPENPAREN)
-            self.EXPRESSION()
+            expressao = self.EXPRESSION()
             self.consome(tt.CLOSEPAREN)
+            return expressao
+
+        else:
+            self.erro = True
+            print(f'ERRO DE SINTAXE [linha {self.tokenAtual.line}]: expressão inválida, veio "{self.tokenAtual.lexema}"')
+            quit()
+
+    def BOOLEAN(self):
+        if self.atualIgual(tt.TRUE):
+            self.consome(tt.TRUE)
+            return BooleanoNode(True)
+        elif self.atualIgual(tt.FALSE):
+            self.consome(tt.FALSE)
+            return BooleanoNode(False)
+        else:
+            self.erro = True
+            print(f'ERRO DE SINTAXE [linha {self.tokenAtual.line}]: era esperado "true" ou "false"')
+            quit()
+
+    # ==================== AUXILIARES ====================
 
     def IDENTIFIER_LIST(self):
-        self.IDENTIFIER()
+        identificadores = [self.IDENTIFIER()]
 
         while self.atualIgual(tt.COMMA):
             self.consome(tt.COMMA)
-            self.IDENTIFIER()
+            identificadores.append(self.IDENTIFIER())
+
+        return identificadores
 
     def IDENTIFIER(self):
-        self.consome(tt.IDENT)
+        nome = self.consome(tt.IDENT)
 
         while (self.atualIgual(tt.IDENT) or self.atualIgual(tt.NUM) or self.atualIgual(tt.UNDERCORE)):
             if self.atualIgual(tt.IDENT):
-                self.consome(tt.IDENT)
+                nome += self.consome(tt.IDENT)
             elif self.atualIgual(tt.NUM):
-                self.consome(tt.NUM)
+                nome += self.consome(tt.NUM)
             elif self.atualIgual(tt.UNDERCORE):
-                self.consome(tt.UNDERCORE)
+                nome += self.consome(tt.UNDERCORE)
+
+        return nome
 
     def INTEGER(self):
+        sinal = ""
         if self.atualIgual(tt.ADDITIVE):
-            self.consome(tt.ADDITIVE)
+            sinal = self.consome(tt.ADDITIVE)
 
-        self.consome(tt.NUM)
+        numero = self.consome(tt.NUM)
 
         while self.atualIgual(tt.NUM):
-            self.consome(tt.NUM)
+            numero += self.consome(tt.NUM)
+
+        return int(sinal + numero)
