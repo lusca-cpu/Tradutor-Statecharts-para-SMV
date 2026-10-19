@@ -1,6 +1,13 @@
 class No:
     """Classe base de todos os nós da AST (Árvore Sintática Abstrata)."""
-    pass
+
+    def aceitar(self, visitor):
+        # Despacho do visitor: StatechartNode -> visitor.visitar_StatechartNode(no)
+        metodo = getattr(visitor, "visitar_" + type(self).__name__, None)
+        if metodo is None:
+            raise NotImplementedError(
+                f"{type(visitor).__name__} não implementa visitar_{type(self).__name__}")
+        return metodo(self)
 
 
 # ==================== STATECHART ====================

@@ -24,6 +24,7 @@ class Sintatico:
         self.lex = None
         self.tokenAtual = None
         self.erro = False
+        self.barra_e_acao = False  # True enquanto lê a guarda (fora de parênteses)
 
     def interprete(self, name_file):
         if not self.lex is None:
@@ -251,7 +252,9 @@ class Sintatico:
         condicao = None
         if self.atualIgual(tt.WHEN):
             self.consome(tt.WHEN)
+            self.barra_e_acao = True
             condicao = self.EXPRESSION()
+            self.barra_e_acao = False
 
         acoes = []
         if self.atualIgual(tt.MULTIPLICATIVE):
@@ -333,7 +336,9 @@ class Sintatico:
         condicao = None
         if self.atualIgual(tt.WHEN):
             self.consome(tt.WHEN)
+            self.barra_e_acao = True
             condicao = self.EXPRESSION()
+            self.barra_e_acao = False
 
         acoes = []
         if self.atualIgual(tt.MULTIPLICATIVE):
@@ -416,7 +421,9 @@ class Sintatico:
     def MULTIPLICATIVE_EXPRESSION(self):
         esquerda = self.UNARY_EXPRESSION()
 
-        while self.atualIgual(tt.MULTIPLICATIVE) or self.atualIgual(tt.MOD):
+        while ((self.atualIgual(tt.MULTIPLICATIVE)
+                and not (self.barra_e_acao and self.tokenAtual.lexema == "/"))
+               or self.atualIgual(tt.MOD)):
             if self.atualIgual(tt.MOD):
                 op = self.consome(tt.MOD)
             else:
@@ -457,7 +464,10 @@ class Sintatico:
 
         elif self.atualIgual(tt.OPENPAREN):
             self.consome(tt.OPENPAREN)
+            anterior = self.barra_e_acao
+            self.barra_e_acao = False
             expressao = self.EXPRESSION()
+            self.barra_e_acao = anterior
             self.consome(tt.CLOSEPAREN)
             return expressao
 
