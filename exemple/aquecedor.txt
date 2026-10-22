@@ -1,0 +1,28 @@
+statechart Aquecedor {
+    declarations {
+        int temperatura [0..120] = 20;
+    }
+    events {
+        event ligar;
+        event aumentar;
+        event desligar;
+    }
+    states {
+        initial state Desligado;
+        state Aquecendo;
+        state Pronto;
+    }
+    transitions {
+        Desligado -> Aquecendo
+            on ligar;
+        Aquecendo -> Aquecendo
+            on aumentar
+            when temperatura < 120
+            / temperatura = temperatura + 10;
+        Aquecendo -> Pronto
+            when temperatura >= 100;
+        Pronto -> Desligado
+            on desligar
+            / temperatura = 20;
+    }
+}

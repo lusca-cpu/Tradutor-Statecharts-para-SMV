@@ -1,0 +1,50 @@
+MODULE main
+
+IVAR
+    event : {none, ligar, aumentar, desligar};
+
+VAR
+    main_state : {desligado, aquecendo, pronto};
+    temperatura : 0..120;
+
+ASSIGN
+    init(main_state) := desligado;
+    init(temperatura) := 20;
+
+    next(main_state) :=
+        case
+            main_state = desligado &
+            event = ligar :
+                aquecendo;
+
+            main_state = aquecendo &
+            event = aumentar &
+            (temperatura < 120) :
+                aquecendo;
+
+            main_state = aquecendo &
+            (temperatura >= 100) :
+                pronto;
+
+            main_state = pronto &
+            event = desligar :
+                desligado;
+
+            TRUE :
+                main_state;
+        esac;
+
+    next(temperatura) :=
+        case
+            main_state = aquecendo &
+            event = aumentar &
+            (temperatura < 120) :
+                (temperatura + 10);
+
+            main_state = pronto &
+            event = desligar :
+                20;
+
+            TRUE :
+                temperatura;
+        esac;
